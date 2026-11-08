@@ -1,0 +1,9 @@
+path: datasets/unified
+train: images/train
+val: images/valid
+
+names:
+  0: person
+  1: vehicle
+  2: animal
+  3: drone

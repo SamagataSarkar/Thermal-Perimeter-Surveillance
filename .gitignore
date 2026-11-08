@@ -1,0 +1,48 @@
+
+# Python virtual environments
+thermal_env/
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Model weights
+*.pt
+*.pth
+
+# Training outputs
+runs/
+
+# Video recordings and exports
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Large dataset files
+datasets/**/images/
+datasets/**/labels/
+datasets/**/raw/
+datasets/**/original/
+datasets/**/*.jpg
+datasets/**/*.jpeg
+datasets/**/*.png
+datasets/**/*.bmp
+datasets/**/*.tif
+datasets/**/*.tiff
+datasets/**/*.webp
+
+# Node dependencies (for future React frontend)
+node_modules/
+dist/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log

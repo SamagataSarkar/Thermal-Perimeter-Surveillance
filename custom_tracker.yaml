@@ -1,0 +1,7 @@
+tracker_type: bytetrack
+track_high_thresh: 0.35     # Raised: Only strong detections enter the tracking pool
+track_low_thresh: 0.10      # Raised: Ghost tracks will be deleted much faster
+new_track_thresh: 0.40      # Raised: Requires a solid 40% confidence to spawn a brand new ID
+track_buffer: 90            # Reduced: Keeps IDs alive for 3 seconds (instead of 10) behind obstacles
+match_thresh: 0.80          # Reduced: Prevents boxes from snapping to unrelated background heat
+fuse_score: True

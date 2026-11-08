@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 6
+names: ['0', 'DJI-Phantom', 'DRONE', 'drone-thermal', 'fpv-drone', 'ufo-thermal']
+
+roboflow:
+  workspace: maor-ovadia
+  project: thermal-drone-47qfh
+  version: 11
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/maor-ovadia/thermal-drone-47qfh/dataset/11
