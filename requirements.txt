@@ -1,0 +1,14 @@
+alembic>=1.13,<2
+fastapi>=0.100,<1
+SQLAlchemy>=2.0,<3
+pydantic>=2.0,<3
+uvicorn>=0.23,<1
+
+numpy>=1.24,<3
+opencv-python>=4.8,<6
+ultralytics>=8.3,<9
+PyYAML>=6,<7
+tqdm>=4.66,<5
+
+# Install PyTorch separately using the official CPU/CUDA-specific instructions
+# for the target platform. Ultralytics declares PyTorch as a dependency.
