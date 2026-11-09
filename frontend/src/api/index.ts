@@ -1,0 +1,24 @@
+import { get, post, put, remove } from './client'
+import type { EventRecord, Health, Metric, Session, Snapshot, Source, Zone } from '../types'
+
+export const api = {
+  health: () => get<Health>('/api/health'),
+  sources: () => get<Source[]>('/api/sources'),
+  createSource: (body: { name: string; source_type: string; source_uri: string; enabled: boolean }) => post<Source>('/api/sources', body),
+  updateSource: (id: number, body: Record<string, unknown>) => put<Source>(`/api/sources/${id}`, body),
+  deleteSource: (id: number) => remove<{ deleted: boolean }>(`/api/sources/${id}`),
+  zones: (sourceId?: number) => get<Zone[]>(`/api/zones${sourceId ? `?source_id=${sourceId}` : ''}`),
+  createZone: (body: { source_id: number; name: string; normalized_polygon: [number, number][]; enabled: boolean }) => post<Zone>('/api/zones', body),
+  updateZone: (id: number, body: Record<string, unknown>) => put<Zone>(`/api/zones/${id}`, body),
+  deleteZone: (id: number) => remove<{ deleted: boolean }>(`/api/zones/${id}`),
+  sessions: () => get<Session[]>('/api/sessions'),
+  session: (id: number) => get<Session>(`/api/sessions/${id}`),
+  startSession: (body: { source_id: number; dwell_threshold?: number }) => post<Session>('/api/sessions/start', body),
+  stopSession: (id: number) => post<Session>(`/api/sessions/${id}/stop`),
+  events: (params = '') => get<EventRecord[]>(`/api/events${params ? `?${params}` : ''}`),
+  acknowledge: (id: number) => post<EventRecord>(`/api/events/${id}/acknowledge`),
+  resolve: (id: number) => post<EventRecord>(`/api/events/${id}/resolve`),
+  snapshots: (sessionId?: number) => get<Snapshot[]>(`/api/snapshots${sessionId ? `?session_id=${sessionId}` : ''}`),
+  captureSnapshot: (sessionId: number) => post<Snapshot>(`/api/snapshots/capture?session_id=${sessionId}`),
+  metrics: (sessionId: number) => get<Metric[]>(`/api/sessions/${sessionId}/metrics`),
+}

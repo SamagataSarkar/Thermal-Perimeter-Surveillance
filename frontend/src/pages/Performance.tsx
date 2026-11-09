@@ -1,0 +1,16 @@
+import { useEffect, useState } from 'react'
+import { Activity, Cpu, Gauge, MemoryStick } from 'lucide-react'
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { api } from '../api'
+import type { Health, Metric, Session, Source } from '../types'
+import { formatNumber, sourceName } from '../utils'
+import { Card, Empty, ErrorState, Loading } from '../components/Ui'
+
+export function Performance() {
+ const [health,setHealth]=useState<Health>();const [sessions,setSessions]=useState<Session[]>([]);const [sources,setSources]=useState<Source[]>([]);const [metrics,setMetrics]=useState<Metric[]>([]);const [error,setError]=useState('')
+ useEffect(()=>{Promise.all([api.health(),api.sessions(),api.sources()]).then(([h,s,src])=>{setHealth(h);setSessions(s);setSources(src);const active=s.find(x=>x.status==='RUNNING');if(active)api.metrics(active.id).then(setMetrics).catch(e=>setError(e.message))}).catch(e=>setError(e.message))},[])
+ if(error)return <ErrorState message={error}/>;if(!health)return <Loading/>
+ const current=metrics[0];const chart=metrics.filter(m=>m.recorded_at).slice().reverse().map((m,i)=>({name:i+1,fps:m.fps??0,latency:m.inference_latency_ms??0}))
+ return <div className="page-stack"><div className="summary-grid"><Stat icon={Gauge} label="FPS" value={formatNumber(current?.fps)}/><Stat icon={Activity} label="Inference latency" value={formatNumber(current?.inference_latency_ms,' ms')}/><Stat icon={Cpu} label="CPU utilization" value={formatNumber(current?.cpu_percent,' %')}/><Stat icon={MemoryStick} label="GPU utilization" value={formatNumber(current?.gpu_percent,' %')}/></div><div className="two-column"><Card><div className="card-heading"><div><p className="eyebrow">RECENT TELEMETRY</p><h2>Performance history</h2></div></div>{chart.length?<ResponsiveContainer width="100%" height={280}><LineChart data={chart}><XAxis dataKey="name"/><YAxis/><Tooltip/><Line type="monotone" dataKey="fps" stroke="#d6a64f" strokeWidth={2}/><Line type="monotone" dataKey="latency" stroke="#6bb8ad" strokeWidth={2}/></LineChart></ResponsiveContainer>:<Empty label="Metrics are recorded periodically during active sessions"/>}</Card><Card><div className="card-heading"><h2>System status</h2></div><div className="metric-list"><div className="metric-row"><span>Backend</span><strong>{health.status}</strong></div><div className="metric-row"><span>Database</span><strong>{health.database.connected?'Connected':'Unavailable'}</strong></div><div className="metric-row"><span>Inference runtime</span><strong>{health.inference_available?'Available':'Unavailable'}</strong></div></div><h3 className="section-title">Active sessions</h3>{sessions.filter(s=>s.status==='RUNNING').map(s=><div className="session-row" key={s.id}><span className="status-dot online"/><div><strong>Session #{s.id}</strong><small>{sourceName(sources,s.source_id)}</small></div></div>)}</Card></div></div>
+}
+function Stat({icon:Icon,label,value}:{icon:typeof Gauge;label:string;value:string}){return <Card className="summary-card"><div className="summary-icon"><Icon size={19}/></div><div><span className="summary-label">{label}</span><strong>{value}</strong><small>Backend-reported value</small></div></Card>}

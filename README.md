@@ -122,3 +122,51 @@ not implemented. RTSP hardware has not been tested in this repository. A
 session supports one source at a time, while different sources can run
 independently subject to available hardware. CPU/GPU metrics unavailable on a
 host are reported as null.
+
+## Phase 4 frontend
+
+The React/Vite dashboard is under [`frontend/`](frontend/). It uses the
+backend as the source of truth for sources, zones, sessions, events, snapshots
+and metrics. The live page consumes the existing MJPEG endpoint and monitoring
+WebSocket; it does not run inference in the browser.
+
+Install and start it on Windows:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite development server proxies `/api` and `/ws` to
+`http://127.0.0.1:8000`. Set `VITE_API_BASE_URL` when the backend is hosted at
+another origin. The dashboard routes are:
+
+```text
+/                    Overview
+/live                Live Monitoring
+/alerts              Alerts & Events
+/history             Event History
+/configuration       Sources and geofences
+/performance         System Performance
+```
+
+Frontend checks:
+
+```powershell
+npm run typecheck
+npm test
+npm run build
+```
+
+The configuration page accepts recorded-file paths and RTSP URLs. RTSP
+credentials are entered through a password field, are not persisted in browser
+storage, and are not shown after submission. The backend currently stores
+credentials without encryption at rest. The polygon editor emits normalized
+coordinates in the same `[0, 1]` convention used by the backend.
+
+The current backend event API supports offset/limit pagination and source,
+session, event-type and status filters; it does not expose date-range filters.
+The current geofence API also does not persist a per-zone dwell threshold, so
+the dashboard uses the session-level dwell configuration supported by the
+backend.
