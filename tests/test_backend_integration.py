@@ -1,4 +1,5 @@
 import asyncio
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -38,7 +39,7 @@ class FakeDetector:
 
 
 class FakeInference:
-    def __init__(self, detector, zones, dwell_threshold):
+    def __init__(self, detector, zones, dwell_threshold, **kwargs):
         self.detector = detector
         self.metrics = type(
             "MetricsContainer",
@@ -134,6 +135,16 @@ class BackendIntegrationTests(unittest.TestCase):
             self.session.id, self.app.state.runtime.connections._clients
         )
 
+    def test_session_stop_broadcasts_terminal_notification(self):
+        client = object()
+        queue = self.app.state.runtime.connections.connect(self.session.id, client)
+        self.app.state.runtime._finish_session(self.db, self.session, "STOPPED")
+        messages = [json.loads(queue.get_nowait()), json.loads(queue.get_nowait())]
+        self.assertEqual(messages[0]["type"], "session_status")
+        self.assertEqual(messages[1]["type"], "session_stopped")
+        self.assertEqual(messages[1]["session_id"], self.session.id)
+        self.app.state.runtime.connections.disconnect(self.session.id, client)
+
     def test_mjpeg_stream_uses_existing_frame_and_handles_stopped_session(self):
         frame = np.zeros((12, 16, 3), dtype=np.uint8)
         encoded, jpeg = cv2.imencode(".jpg", frame)
@@ -190,6 +201,8 @@ class BackendIntegrationTests(unittest.TestCase):
             FakeResult(),
         )
         event = self.db.query(Event).one()
+        self.assertEqual(event.details["inference_timestamp"], 1.0)
+        self.assertEqual(event.occurred_at.tzinfo, utc_now().tzinfo)
         snapshot = self.db.query(Snapshot).filter(Snapshot.event_id == event.id).one()
         self.assertTrue(Path(snapshot.file_path).is_file())
         self.db.commit()
@@ -301,14 +314,20 @@ class BackendIntegrationTests(unittest.TestCase):
         source.source_uri = str(video)
         self.db.commit()
         session = self.db.get(MonitoringSession, self.session.id)
-        session.configuration_snapshot = {"model_path": "unused", "tracker_config": "unused"}
+        configured_model_path = Path(self.temp_dir.name) / "configured-model.pt"
+        configured_model_path.touch()
+        session.configuration_snapshot = {
+            "model_path": str(configured_model_path),
+            "tracker_config": "unused",
+        }
         self.db.commit()
         self.app.state.runtime._sessions.pop(self.session.id)
-        with patch("backend.app.services.runtime.Detector", FakeDetector), patch(
+        with patch("backend.app.services.runtime.Detector", autospec=True) as detector_class, patch(
             "backend.app.services.runtime.InferenceService", FakeInference
         ):
             runtime = self.app.state.runtime.start(session, source, [])
             runtime.worker.join(10)
+        detector_class.assert_called_once_with(str(configured_model_path.resolve()), "unused")
         check_db = self.app.state.runtime.session_factory()
         check = check_db.get(MonitoringSession, self.session.id)
         self.assertFalse(runtime.worker.is_alive())

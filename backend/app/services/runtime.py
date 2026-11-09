@@ -9,7 +9,17 @@ from typing import Dict, Optional
 
 import cv2
 
-from backend.app.config import MODEL_PATH, SNAPSHOT_DIRECTORY, TRACKER_CONFIG
+from backend.app.config import (
+    ENTRY_DEBOUNCE_SECONDS,
+    EXIT_DEBOUNCE_SECONDS,
+    GEOFENCE_HYSTERESIS_PIXELS,
+    INFERENCE_SIZE,
+    MODEL_PATH,
+    SNAPSHOT_DIRECTORY,
+    TRACKER_CONFIG,
+    TRANSITION_MIN_OBSERVATIONS,
+    resolve_model_path,
+)
 from backend.app.core.connection_manager import ConnectionManager
 from backend.app.db.models import (
     Event,
@@ -22,6 +32,7 @@ from backend.app.db.models import (
     VideoSource,
 )
 from backend.app.db.session import create_session_factory, utc_now
+from backend.app.services.alerts import AlertService
 from backend.app.schemas.video_sources import redact_source_uri
 from scripts.inference.detector import Detector
 from scripts.inference.events import EventType as InferenceEventType
@@ -73,6 +84,7 @@ class RuntimeManager:
         self.snapshot_directory = Path(snapshot_directory).resolve()
         self.snapshot_directory.mkdir(parents=True, exist_ok=True)
         self.connections = ConnectionManager()
+        self.alerts = AlertService(self.connections)
         self._sessions: Dict[int, RuntimeSession] = {}
         self._lock = threading.RLock()
 
@@ -118,13 +130,26 @@ class RuntimeManager:
         try:
             configuration = session.configuration_snapshot or {}
             detector = Detector(
-                configuration.get("model_path", MODEL_PATH),
+                resolve_model_path(configuration.get("model_path", MODEL_PATH)),
                 configuration.get("tracker_config", TRACKER_CONFIG),
             )
             inference = InferenceService(
                 detector,
                 [PolygonZone(str(zone.id), tuple(map(tuple, zone.normalized_polygon))) for zone in zones],
                 configuration.get("dwell_threshold", 3.0),
+                entry_debounce=configuration.get(
+                    "entry_debounce_seconds", ENTRY_DEBOUNCE_SECONDS
+                ),
+                exit_debounce=configuration.get(
+                    "exit_debounce_seconds", EXIT_DEBOUNCE_SECONDS
+                ),
+                min_transition_observations=configuration.get(
+                    "transition_min_observations", TRANSITION_MIN_OBSERVATIONS
+                ),
+                hysteresis_margin=configuration.get(
+                    "geofence_hysteresis_pixels", GEOFENCE_HYSTERESIS_PIXELS
+                ),
+                inference_size=configuration.get("inference_size", INFERENCE_SIZE),
             )
             capture = (
                 RecordedVideoSource(source.source_uri)
@@ -230,14 +255,18 @@ class RuntimeManager:
                 "object_class": object_class,
                 "confidence": confidence,
                 **event.details,
+                "inference_timestamp": event.timestamp,
             },
         )
         db.add(persisted)
         db.flush()
+        snapshot = None
         try:
-            self._save_snapshot(db, session, source, frame, persisted, False)
+            snapshot = self._save_snapshot(db, session, source, frame, persisted, False)
+            db.flush()
         except Exception:
             logger.exception("Unable to save automatic snapshot for event %s", persisted.id)
+        alert = self.alerts.process_event(db, persisted, snapshot)
         db.commit()
         self.connections.publish(
             session.id,
@@ -298,6 +327,9 @@ class RuntimeManager:
             current.ended_at = utc_now()
             db.commit()
             self.connections.publish(session.id, self._message("session_status", session.id, {
+                "status": status, "ended_at": current.ended_at,
+            }))
+            self.connections.publish(session.id, self._message("session_stopped", session.id, {
                 "status": status, "ended_at": current.ended_at,
             }))
 

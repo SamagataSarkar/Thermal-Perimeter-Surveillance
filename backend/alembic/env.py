@@ -8,6 +8,8 @@ from backend.app.db.base import Base
 from backend.app.db.models import (
     Event,
     EventAuditLog,
+    Alert,
+    ApplicationSetting,
     Geofence,
     MonitoringSession,
     Snapshot,

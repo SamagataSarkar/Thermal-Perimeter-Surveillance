@@ -1,8 +1,10 @@
 import { get, post, put, remove } from './client'
-import type { EventRecord, Health, Metric, Session, Snapshot, Source, Zone } from '../types'
+import type { AlertRecord, ApplicationSettings, EventRecord, Health, Metric, Session, Snapshot, Source, Zone } from '../types'
 
 export const api = {
   health: () => get<Health>('/api/health'),
+  settings: () => get<ApplicationSettings>('/api/settings'),
+  updateDwellThreshold: (dwell_threshold: number) => put<ApplicationSettings>('/api/settings/dwell-threshold', { dwell_threshold }),
   sources: () => get<Source[]>('/api/sources'),
   createSource: (body: { name: string; source_type: string; source_uri: string; enabled: boolean }) => post<Source>('/api/sources', body),
   updateSource: (id: number, body: Record<string, unknown>) => put<Source>(`/api/sources/${id}`, body),
@@ -12,10 +14,15 @@ export const api = {
   updateZone: (id: number, body: Record<string, unknown>) => put<Zone>(`/api/zones/${id}`, body),
   deleteZone: (id: number) => remove<{ deleted: boolean }>(`/api/zones/${id}`),
   sessions: () => get<Session[]>('/api/sessions'),
+  activeSession: () => get<Session | null>('/api/sessions/active'),
   session: (id: number) => get<Session>(`/api/sessions/${id}`),
-  startSession: (body: { source_id: number; dwell_threshold?: number }) => post<Session>('/api/sessions/start', body),
+  startSession: (body: { source_id: number; zone_ids?: number[]; dwell_threshold?: number }) => post<Session>('/api/sessions/start', body),
   stopSession: (id: number) => post<Session>(`/api/sessions/${id}/stop`),
   events: (params = '') => get<EventRecord[]>(`/api/events${params ? `?${params}` : ''}`),
+  alerts: (params = '') => get<AlertRecord[]>(`/api/alerts${params ? `?${params}` : ''}`),
+  acknowledgeAlert: (id: number) => post<AlertRecord>(`/api/alerts/${id}/acknowledge`),
+  resolveAlert: (id: number) => post<AlertRecord>(`/api/alerts/${id}/resolve`),
+  dismissAlert: (id: number) => post<AlertRecord>(`/api/alerts/${id}/dismiss`),
   acknowledge: (id: number) => post<EventRecord>(`/api/events/${id}/acknowledge`),
   resolve: (id: number) => post<EventRecord>(`/api/events/${id}/resolve`),
   snapshots: (sessionId?: number) => get<Snapshot[]>(`/api/snapshots${sessionId ? `?session_id=${sessionId}` : ''}`),

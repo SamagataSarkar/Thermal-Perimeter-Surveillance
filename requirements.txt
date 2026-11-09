@@ -3,6 +3,7 @@ fastapi>=0.100,<1
 SQLAlchemy>=2.0,<3
 pydantic>=2.0,<3
 uvicorn>=0.23,<1
+websockets>=12
 
 numpy>=1.24,<3
 opencv-python>=4.8,<6

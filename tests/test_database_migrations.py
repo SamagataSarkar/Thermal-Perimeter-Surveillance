@@ -19,7 +19,8 @@ class DatabaseMigrationTests(unittest.TestCase):
                 set(inspect(engine).get_table_names()) - {"alembic_version"},
                 {
                     "video_sources", "monitoring_sessions", "geofences", "events",
-                    "snapshots", "system_metrics", "event_audit_logs",
+                    "snapshots", "system_metrics", "event_audit_logs", "alerts",
+                    "application_settings",
                 },
             )
         finally:

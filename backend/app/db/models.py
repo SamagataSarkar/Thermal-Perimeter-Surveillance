@@ -26,6 +26,31 @@ class EventStatus(str, Enum):
     RESOLVED = "RESOLVED"
 
 
+class AlertType(str, Enum):
+    ENTRY_WARNING = "ENTRY_WARNING"
+    DWELL = "DWELL"
+
+
+class AlertSeverity(str, Enum):
+    WARNING = "WARNING"
+    HIGH = "HIGH"
+
+
+class AlertStatus(str, Enum):
+    NEW = "NEW"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    RESOLVED = "RESOLVED"
+    DISMISSED = "DISMISSED"
+
+
+class ApplicationSetting(Base):
+    __tablename__ = "application_settings"
+
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(String(200), nullable=False)
+    updated_at: Mapped[Any] = mapped_column(UTCDateTime(), nullable=False, default=utc_now, onupdate=utc_now)
+
+
 class VideoSource(Base):
     __tablename__ = "video_sources"
 
@@ -49,6 +74,7 @@ class VideoSource(Base):
     snapshots: Mapped[List["Snapshot"]] = relationship(back_populates="source")
     metrics: Mapped[List["SystemMetric"]] = relationship(back_populates="source")
     audit_logs: Mapped[List["EventAuditLog"]] = relationship(back_populates="source")
+    alerts: Mapped[List["Alert"]] = relationship(back_populates="source")
 
     def __repr__(self):
         return f"<VideoSource id={self.id!r} name={self.name!r} source_type={self.source_type!r}>"
@@ -129,6 +155,7 @@ class Event(Base):
     geofence: Mapped[Optional["Geofence"]] = relationship(back_populates="events")
     snapshots: Mapped[List["Snapshot"]] = relationship(back_populates="event")
     audit_logs: Mapped[List["EventAuditLog"]] = relationship(back_populates="event")
+    alert: Mapped[Optional["Alert"]] = relationship(back_populates="event", uselist=False)
 
 
 class Snapshot(Base):
@@ -156,6 +183,46 @@ class Snapshot(Base):
     source: Mapped["VideoSource"] = relationship(back_populates="snapshots")
     session: Mapped["MonitoringSession"] = relationship(back_populates="snapshots")
     event: Mapped[Optional["Event"]] = relationship(back_populates="snapshots")
+    alerts: Mapped[List["Alert"]] = relationship(back_populates="evidence_snapshot")
+
+
+class Alert(Base):
+    __tablename__ = "alerts"
+    __table_args__ = (
+        UniqueConstraint("event_id", name="uq_alerts_event_id"),
+        Index("ix_alerts_status_created", "status", "created_at"),
+        Index("ix_alerts_session_created", "session_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
+    source_id: Mapped[int] = mapped_column(ForeignKey("video_sources.id", ondelete="RESTRICT"), nullable=False)
+    session_id: Mapped[int] = mapped_column(ForeignKey("monitoring_sessions.id", ondelete="CASCADE"), nullable=False)
+    track_id: Mapped[Optional[int]] = mapped_column(Integer)
+    geofence_id: Mapped[Optional[int]] = mapped_column(ForeignKey("geofences.id", ondelete="SET NULL"))
+    alert_type: Mapped[AlertType] = mapped_column(
+        SqlEnum(AlertType, native_enum=False, create_constraint=True), nullable=False
+    )
+    severity: Mapped[AlertSeverity] = mapped_column(
+        SqlEnum(AlertSeverity, native_enum=False, create_constraint=True), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(String(2000), nullable=False)
+    evidence_snapshot_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("snapshots.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[Any] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
+    acknowledged_at: Mapped[Optional[Any]] = mapped_column(UTCDateTime())
+    resolved_at: Mapped[Optional[Any]] = mapped_column(UTCDateTime())
+    status: Mapped[AlertStatus] = mapped_column(
+        SqlEnum(AlertStatus, native_enum=False, create_constraint=True),
+        nullable=False,
+        default=AlertStatus.NEW,
+    )
+
+    event: Mapped["Event"] = relationship(back_populates="alert")
+    source: Mapped["VideoSource"] = relationship(back_populates="alerts")
+    evidence_snapshot: Mapped[Optional["Snapshot"]] = relationship(back_populates="alerts")
 
 
 class SystemMetric(Base):

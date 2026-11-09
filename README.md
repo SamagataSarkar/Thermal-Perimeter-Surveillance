@@ -37,6 +37,20 @@ Tracker: custom_tracker.yaml
 
 All paths can be overridden with command-line options.
 
+New person tracks require confidence `0.50`; other classes retain the
+configured ByteTrack `new_track_thresh` of `0.40`. This applies only to
+unmatched-track activation. Existing tracks still use the normal ByteTrack
+association and recovery path.
+
+Backend monitoring sessions use the custom-trained checkpoint at
+`runs/detect/models/thermal_perimeter_yolo11n-2/weights/best.pt` by default.
+The backend resolves this path from the project root rather than the current
+terminal directory. Set `THERMAL_MODEL_PATH` to an absolute path or a path
+relative to the project root to select another checkpoint. A session will not
+start if the configured weight file is missing. The training script's
+`yolo11n.pt` reference is only the base model used to start training and does
+not affect backend monitoring sessions.
+
 ## Running the demonstration
 
 ```powershell
@@ -106,8 +120,15 @@ Invoke-RestMethod "http://127.0.0.1:8000/api/zones?source_id=$($source.id)" -Met
   -ContentType 'application/json' `
   -Body '{"name":"Perimeter","normalized_polygon":[[0.0,0.5],[1.0,0.5],[1.0,1.0],[0.0,1.0]]}'
 Invoke-RestMethod http://127.0.0.1:8000/api/sessions/start -Method Post `
-  -ContentType 'application/json' -Body "{`"source_id`":$($source.id)}"
+  -ContentType 'application/json' -Body "{`"source_id`":$($source.id),`"zone_ids`":[]}"
 ```
+
+`zone_ids` is optional. When omitted, all enabled zones for the source are
+selected for backward compatibility. When supplied, every ID must belong to
+that source and be enabled; the selected IDs are fixed in the session
+configuration for its lifetime. The dashboard's Live Monitoring page defaults
+to all enabled zones and allows an operator to select any subset for the next
+session without changing saved zones.
 
 Display an active annotated session with an HTML image element pointing to
 `http://127.0.0.1:8000/api/stream/{session_id}`. WebSocket messages use the
@@ -170,3 +191,28 @@ session, event-type and status filters; it does not expose date-range filters.
 The current geofence API also does not persist a per-zone dwell threshold, so
 the dashboard uses the session-level dwell configuration supported by the
 backend.
+
+Geofence ENTRY and EXIT transitions use the following backend defaults:
+
+```text
+Entry debounce:              0.15 seconds
+Exit debounce:               0.25 seconds
+Minimum observations:        3
+Hysteresis margin:            4.0 pixels
+Tracking-loss grace period:   1.0 second
+```
+
+The hysteresis margin is measured in pixels in the processed video frame
+coordinate system. It preserves the previous membership state inside the
+neutral band between the enter and exit boundaries. Override these values with
+`THERMAL_ENTRY_DEBOUNCE_SECONDS`, `THERMAL_EXIT_DEBOUNCE_SECONDS`,
+`THERMAL_TRANSITION_MIN_OBSERVATIONS`, and
+`THERMAL_GEOFENCE_HYSTERESIS_PIXELS`. Effective values are stored in each
+session configuration snapshot.
+
+Monitoring inference uses a default Ultralytics image size of `960`. Set
+`THERMAL_INFERENCE_SIZE=832` or `THERMAL_INFERENCE_SIZE=640` (or another
+positive integer) to select a different size without changing source code.
+Invalid values are rejected during backend configuration loading, and the
+effective size is stored in each session configuration snapshot. Confidence,
+IoU/NMS, ByteTrack, model weights, and tracker settings are unchanged.

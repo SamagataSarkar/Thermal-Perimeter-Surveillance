@@ -28,6 +28,10 @@ class PolygonZone:
         polygon = self.points_for_frame(width, height)
         return cv2.pointPolygonTest(polygon, point, False) >= 0
 
+    def signed_distance(self, point: Point, width: int, height: int) -> float:
+        polygon = self.points_for_frame(width, height)
+        return float(cv2.pointPolygonTest(polygon, point, True))
+
     def draw(self, frame, color=(0, 255, 255), thickness=2):
         height, width = frame.shape[:2]
         polygon = self.points_for_frame(width, height)

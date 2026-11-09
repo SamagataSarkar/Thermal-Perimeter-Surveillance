@@ -1,6 +1,9 @@
 export type SourceType = 'FILE' | 'RTSP'
 export type EventType = 'ENTRY' | 'EXIT' | 'DWELL' | 'FIRST_OBSERVED_INSIDE'
 export type EventStatus = 'NEW' | 'ACKNOWLEDGED' | 'RESOLVED'
+export type AlertStatus = 'NEW' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED'
+export type AlertSeverity = 'WARNING' | 'HIGH'
+export type AlertType = 'ENTRY_WARNING' | 'DWELL'
 
 export interface Health {
   status: string
@@ -55,6 +58,32 @@ export interface EventRecord {
   }
 }
 
+export interface AlertRecord {
+    id: number
+    event_id: number
+    source_id: number
+    session_id: number
+    track_id?: number | null
+    geofence_id?: number | null
+    alert_type: AlertType
+    severity: AlertSeverity
+    title: string
+    description: string
+    evidence_snapshot_id?: number | null
+    created_at: string
+    acknowledged_at?: string | null
+    resolved_at?: string | null
+    status: AlertStatus
+    dwell_threshold?: number | null
+    observed_dwell_seconds?: number | null
+    object_class?: string | null
+    class_id?: number | null
+}
+
+export interface ApplicationSettings {
+    dwell_threshold: number
+}
+
 export interface Snapshot {
   id: number
   source_id: number
@@ -80,7 +109,7 @@ export interface Metric {
 }
 
 export interface MonitorMessage {
-  type: 'session_status' | 'detection_update' | 'event_created' | 'event_acknowledged' | 'event_resolved' | 'metrics_update' | 'source_error'
+  type: 'session_status' | 'session_stopped' | 'detection_update' | 'event_created' | 'event_acknowledged' | 'event_resolved' | 'alert_created' | 'alert_updated' | 'metrics_update' | 'source_error'
   session_id: number
   timestamp: string
   data: Record<string, unknown>
