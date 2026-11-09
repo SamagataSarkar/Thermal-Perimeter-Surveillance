@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy import DateTime, create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.types import TypeDecorator
 
 
@@ -31,6 +32,9 @@ def utc_now() -> datetime:
 
 
 def create_database_engine(database_url: str, **kwargs):
+    if database_url == "sqlite:///:memory:":
+        kwargs.setdefault("connect_args", {"check_same_thread": False})
+        kwargs.setdefault("poolclass", StaticPool)
     engine = create_engine(database_url, **kwargs)
     if engine.dialect.name == "sqlite":
         _enable_sqlite_foreign_keys(engine)

@@ -1,9 +1,10 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class GeofenceCreate(BaseModel):
+    source_id: Optional[int] = None
     name: str = Field(min_length=1, max_length=200)
     normalized_polygon: List[Tuple[float, float]] = Field(min_length=3)
     enabled: bool = True
